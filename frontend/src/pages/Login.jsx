@@ -86,7 +86,7 @@ export default function Login() {
           </form>
 
           <p className="text-center text-xs text-gray-600 mt-5">
-            Default credentials: <span className="font-mono text-gray-500">admin / admin123</span>
+            Contact your administrator for account access.
           </p>
         </div>
       </div>
