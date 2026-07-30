@@ -105,16 +105,33 @@ def task_ingest_dump(
     from app.models.dump_snapshot import DumpSnapshot
     from app.models.prr_dump_row import PrrDumpRow
     from app.models.rbar_dump_row import RbarDumpRow
+    from app.models.dra_instance import DRAInstance
 
     logger.info("Dump ingestion task tracking pipeline initialized for file: %s", original_filename)
 
     dump_type = _detect_type(original_filename)
     source_ts = _extract_timestamp(original_filename)
-    
+
     rows_parsed_count = 0
     rows_inserted_count = 0
 
     with SyncSessionLocal() as db:
+        # The RBAR scope rule depends on the DRA instance category
+        # (Core/IoT → orcl…vdea, Policy → jio…pcrf; see RBAR_SCOPE_RULES).
+        instance = db.execute(
+            select(DRAInstance).where(
+                and_(
+                    DRAInstance.dra_type == dra_type,
+                    DRAInstance.instance_label == instance_label,
+                )
+            )
+        ).scalars().first()
+        instance_category = instance.category if instance else None
+        if not instance:
+            logger.warning(
+                "Dump ingest: no DRA instance found for %s/%s — RBAR scope "
+                "falls back to the 'default' rule.", dra_type, instance_label,
+            )
         duplicate_check = db.execute(
             select(DumpSnapshot).where(
                 and_(
@@ -181,7 +198,7 @@ def task_ingest_dump(
                     ))
                     rows_inserted_count += 1
             else:
-                rows = parse_rbar_dump(file_path)
+                rows = parse_rbar_dump(file_path, instance_category)
                 rows_parsed_count = len(rows)
                 for r in rows:
                     try:

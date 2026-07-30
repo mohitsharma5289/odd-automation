@@ -8,24 +8,22 @@ logger = logging.getLogger(__name__)
 
 def _make_renamed_rule(rule: str, unavailable_rules: set) -> str | None:
     """
-    Robust Suffix Management:
-    Isolates ending sequence counters using standard non-greedy matching.
+    Collision-safe PRR rule rename that PRESERVES prefix and suffix so the
+    renamed rule stays in scope (PRR scope = prefix AND suffix match):
+        ild_dte_s6a → ild_dte2_s6a → ild_dte3_s6a …
+    The counter is inserted before the final '_' segment; appending it at
+    the end would break the suffix rule (…_s6a2 no longer ends with s6a).
     """
     max_len = settings.PRR_NAME_MAX_LEN
 
-    # Cleaned regex: exactly one lazy modifier '.*?'
-    match = re.match(r"^(.*?)(\d+)$", rule)
-    
-    if match:
-        base = match.group(1)
-        counter = int(match.group(2))
+    if "_" in rule:
+        prefix, suffix = rule.rsplit("_", 1)
     else:
-        base = rule
-        counter = 1
+        prefix, suffix = rule, ""
 
+    i = 2
     while True:
-        counter += 1
-        candidate = f"{base}{counter}"
+        candidate = f"{prefix}{i}_{suffix}" if suffix else f"{prefix}{i}"
 
         if len(candidate) > max_len:
             logger.error("PRR Rename failed: candidate '%s' exceeds max length %d", candidate, max_len)
@@ -33,6 +31,7 @@ def _make_renamed_rule(rule: str, unavailable_rules: set) -> str | None:
 
         if candidate.lower() not in unavailable_rules:
             return candidate
+        i += 1
 
 
 async def evaluate_prr_instance(ctx, row: dict, request_id: str) -> dict:

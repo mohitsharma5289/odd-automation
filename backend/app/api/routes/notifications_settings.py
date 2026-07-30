@@ -80,13 +80,27 @@ async def mark_all_read(db: AsyncSession = Depends(get_db), _=Depends(get_curren
 @settings_router.get("/")
 async def get_settings(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     s = (await db.execute(select(AppSettings).where(AppSettings.id == 1))).scalars().first()
+
+    # Engine scope configuration is env-driven (config.py / .env) and
+    # read-only from the UI — always reflect the CURRENT effective values.
+    from app.core.config import settings as env
+    from app.modules.ild.helpers import rbar_scope_rules
+
+    scope_config = {
+        "prr_scope_prefixes": env.PRR_SCOPE_PREFIXES,
+        "prr_scope_suffixes": env.PRR_SCOPE_SUFFIXES,
+        "rbar_scope_rules": rbar_scope_rules(),   # parsed per-category rules
+        "prr_name_max_len": env.PRR_NAME_MAX_LEN,
+    }
+
     if not s:
-        return {}
+        return {"scope_config": scope_config}
     return {
         "download_base_name": s.download_base_name,
         "download_version": s.download_version,
         "recon_cron_time": s.recon_cron_time,
         "dump_ingest_times": s.dump_ingest_times,
+        "scope_config": scope_config,
     }
 
 

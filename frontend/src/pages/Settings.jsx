@@ -43,8 +43,17 @@ export default function Settings() {
   })
 
   useEffect(() => {
-    if (appSettings) setForm({ ...form, ...appSettings })
+    if (appSettings) {
+      setForm(p => ({
+        download_base_name: appSettings.download_base_name ?? p.download_base_name,
+        download_version: appSettings.download_version ?? p.download_version,
+        recon_cron_time: appSettings.recon_cron_time ?? p.recon_cron_time,
+        dump_ingest_times: appSettings.dump_ingest_times ?? p.dump_ingest_times,
+      }))
+    }
   }, [appSettings])
+
+  const scope = appSettings?.scope_config
 
   const save = useMutation({
     mutationFn: () => api.patch('/settings/', form),
@@ -161,20 +170,61 @@ export default function Settings() {
         )}
       </Section>
 
-      {/* Environment info (read-only) */}
-      <Section title="Runtime Environment" icon={KeyRound}>
-        <div className="space-y-2 text-xs font-mono">
-          {[
-            ['PRR Scope Suffixes', import.meta.env.VITE_PRR_SCOPE ?? 's6a, s6d (default)'],
-            ['RBAR Scope Suffixes', import.meta.env.VITE_RBAR_SCOPE ?? 'vdea, vpcrf (default)'],
-            ['All timestamps in IST', 'Asia/Kolkata'],
-          ].map(([k, v]) => (
-            <div key={k} className="flex justify-between gap-4 py-1.5 border-b border-gray-700/40">
-              <span className="text-gray-400">{k}</span>
-              <span className="text-sky-300">{v}</span>
+      {/* Engine scope configuration — live values from backend .env (read-only) */}
+      <Section title="Engine Scope Configuration (.env — read-only)" icon={KeyRound}>
+        {!scope ? (
+          <p className="text-xs text-gray-500">Loading…</p>
+        ) : (
+          <>
+            <div className="space-y-2 text-xs font-mono">
+              {[
+                ['PRR Scope Prefixes (name starts with)', scope.prr_scope_prefixes],
+                ['PRR Scope Suffixes (name ends with)', scope.prr_scope_suffixes],
+                ['PRR Rule Name Max Length', String(scope.prr_name_max_len)],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 py-1.5 border-b border-gray-700/40">
+                  <span className="text-gray-400">{k}</span>
+                  <span className="text-sky-300">{v}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            <div>
+              <p className="text-xs font-medium text-gray-300 mb-2">
+                RBAR Scope Rules (destination prefix + suffix, per DRA category)
+              </p>
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="text-gray-400 border-b border-gray-700">
+                    <th className="text-left py-1.5 font-medium">Category</th>
+                    <th className="text-left py-1.5 font-medium">Prefixes</th>
+                    <th className="text-left py-1.5 font-medium">Suffixes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(scope.rbar_scope_rules ?? {}).map(([cat, rule]) => (
+                    <tr key={cat} className="border-b border-gray-700/40">
+                      <td className="py-1.5 text-amber-300 capitalize">{cat}</td>
+                      <td className="py-1.5 text-sky-300">{(rule.prefixes ?? []).join(', ') || '—'}</td>
+                      <td className="py-1.5 text-sky-300">{(rule.suffixes ?? []).join(', ') || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-xs text-gray-500 mt-2">
+                "default" applies to every category without its own row (e.g. Core, IoT, Charging).
+                Values come from PRR_SCOPE_PREFIXES / PRR_SCOPE_SUFFIXES / RBAR_SCOPE_RULES in .env —
+                changing them requires an api + worker container restart, after which this page reflects
+                the new values automatically.
+              </p>
+            </div>
+
+            <div className="flex justify-between gap-4 py-1.5 text-xs font-mono">
+              <span className="text-gray-400">All timestamps in IST</span>
+              <span className="text-sky-300">Asia/Kolkata</span>
+            </div>
+          </>
+        )}
       </Section>
     </div>
   )

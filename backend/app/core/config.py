@@ -18,10 +18,19 @@ class Settings(BaseSettings):
 
     # ── ILD engine scope / limits ──────────────────────────────────────────
     PRR_NAME_MAX_LEN: int = Field(default=16)
-    # PRR scope: rule NAME CONTAINS any suffix (case-insensitive)
-    PRR_SCOPE_SUFFIXES: str = Field(default="s6a,s6d")
-    # RBAR scope: DESTINATION ENDS WITH any suffix (case-insensitive)
-    RBAR_SCOPE_SUFFIXES: str = Field(default="vdea,vpcrf")
+    # PRR scope: rule NAME must START WITH any prefix AND END WITH any
+    # suffix (both case-insensitive, comma-separated). Empty prefix list
+    # disables the prefix check.
+    PRR_SCOPE_PREFIXES: str = Field(default="ild")
+    PRR_SCOPE_SUFFIXES: str = Field(default="s6a")
+    # RBAR scope: DESTINATION must match prefix+suffix rules that depend on
+    # the DRA instance CATEGORY. JSON mapping {category: {prefixes, suffixes}};
+    # "default" applies to any category without an explicit entry
+    # (Core/IoT/Charging/Layer/DR → orcl+vdea; Policy → jio+pcrf).
+    RBAR_SCOPE_RULES: str = Field(default=(
+        '{"default": {"prefixes": ["orcl"], "suffixes": ["vdea"]}, '
+        '"Policy": {"prefixes": ["jio"], "suffixes": ["pcrf"]}}'
+    ))
 
     # ── Paths (all configurable; defaults match container volumes) ────────
     EXPORT_PATH: str = "/app/exports"

@@ -163,19 +163,21 @@ def parse_prr_dump(file_path: str) -> list[dict]:
     return results
 
 
-def parse_rbar_dump(file_path: str) -> list[dict]:
+def parse_rbar_dump(file_path: str, category: str | None = None) -> list[dict]:
     """
     Parse an RBAR (AddressRange) dump file.
     Returns list of dicts with keys: table_name, start_addr, end_addr, destination, raw_payload.
     startAddr / endAddr are stored as Python int (handles scientific notation from Excel).
-    Only in-scope rows (destination matching RBAR_SCOPE_SUFFIXES) are returned.
+    Only in-scope rows are returned — the prefix+suffix rule depends on the
+    owning DRA instance's ``category`` (RBAR_SCOPE_RULES; e.g. Core/IoT →
+    orcl…vdea, Policy → jio…pcrf).
     """
     _, rows = _iter_dump_rows(file_path)
     results = []
     skipped = 0
     for row in rows:
         destination = row.get("destination", "").strip()
-        if not _in_rbar_scope(destination):
+        if not _in_rbar_scope(destination, category):
             skipped += 1
             continue
 
@@ -206,11 +208,11 @@ def parse_rbar_dump(file_path: str) -> list[dict]:
     return results
 
 
-async def parse_dump(file_path: str) -> dict:
-    """Entry point used by dump_engine.py."""
+async def parse_dump(file_path: str, category: str | None = None) -> dict:
+    """Generic entry point (category drives the RBAR scope rule)."""
     dump_type = _detect_type(Path(file_path).name)
     if dump_type == "PRR":
         rows = parse_prr_dump(file_path)
     else:
-        rows = parse_rbar_dump(file_path)
+        rows = parse_rbar_dump(file_path, category)
     return {"type": dump_type, "rows": rows}

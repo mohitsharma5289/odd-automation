@@ -163,6 +163,15 @@ def sync_unknown_rbar(db: Session, dra_type: str, instance_label: str, snapshot)
     dump_rows = db.execute(select(RbarDumpRow).where(RbarDumpRow.snapshot_id == snapshot.id)).scalars().all()
     effective_rbar = _load_effective_rbar(db, dra_type, instance_label)
 
+    # RBAR scope depends on the instance category (RBAR_SCOPE_RULES)
+    from app.models.dra_instance import DRAInstance
+    inst = db.execute(
+        select(DRAInstance).where(
+            and_(DRAInstance.dra_type == dra_type, DRAInstance.instance_label == instance_label)
+        )
+    ).scalars().first()
+    category = inst.category if inst else None
+
     # FIXED: Querying using structural inventory boundaries
     existing_records = db.execute(
         select(UnknownEntry).where(
@@ -180,7 +189,7 @@ def sync_unknown_rbar(db: Session, dra_type: str, instance_label: str, snapshot)
             continue
             
         dest = (row.destination or "").strip()
-        if not _in_rbar_scope(dest):
+        if not _in_rbar_scope(dest, category):
             continue
             
         try:
